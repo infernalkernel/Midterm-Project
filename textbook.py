@@ -42,6 +42,7 @@ async def update_textbook(textbook: TextbookRequest, id: int) -> dict:
     for x in textbook_list:
         if x.id == id:
             x.title = textbook.title
+            x.ISBN = textbook.ISBN
             x.description = textbook.description
             return {"message": "Textbook updated successfully"}
 

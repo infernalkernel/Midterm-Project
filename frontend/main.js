@@ -1,38 +1,45 @@
-// DOM elements
 let titleInput = document.getElementById('title');
 let isbnInput = document.getElementById('isbn');
 let descInput = document.getElementById('desc');
-let textbooks = document.getElementById('textbooks');
-let msg = document.getElementById('msg');
+let textbookId = document.getElementById('textbook-id');
 let titleEditInput = document.getElementById('title-edit');
 let isbnEditInput = document.getElementById('isbn-edit');
 let descEditInput = document.getElementById('desc-edit');
-let textbookId = document.getElementById('textbook-id');
-let msgEdit = document.getElementById('msg-edit');
-
-// API endpoint
-const api = 'http://127.0.0.1:8000';
-
-// Data array to store textbooks
+let textbooks = document.getElementById('textbooks');
 let data = [];
 let selectedTextbook = {};
+const api = 'http://127.0.0.1:8000';
 
-// Function to add a textbook
+function tryAdd() {
+  let msg = document.getElementById('msg');
+  msg.innerHTML = '';
+}
+
+document.getElementById('form-add').addEventListener('submit', (e) => {
+  e.preventDefault();
+
+  if (!titleInput.value || !isbnInput.value) {
+    document.getElementById('msg').innerHTML = 'Title and ISBN cannot be blank';
+  } else {
+    addTextbook(titleInput.value, isbnInput.value, descInput.value);
+
+    // close modal
+    let add = document.getElementById('add');
+    add.setAttribute('data-bs-dismiss', 'modal');
+    add.click();
+    (() => {
+      add.setAttribute('data-bs-dismiss', '');
+    })();
+  }
+});
+
 let addTextbook = (title, isbn, description) => {
   const xhr = new XMLHttpRequest();
   xhr.onreadystatechange = () => {
-    if (xhr.readyState == 4) {
-      if (xhr.status == 201) {
-        const newTextbook = JSON.parse(xhr.responseText);
-        data.push(newTextbook);
-        refreshTextbooks();
-      } else {
-        console.error('Error adding textbook:', xhr.status);
-        // Display error message to the user
-        if (msg) {
-          msg.innerHTML = 'Error adding textbook';
-        }
-      }
+    if (xhr.readyState == 4 && xhr.status == 201) {
+      const newTextbook = JSON.parse(xhr.responseText);
+      data.push(newTextbook);
+      refreshTextbooks();
     }
   };
   xhr.open('POST', `${api}/textbooks`, true);
@@ -40,132 +47,99 @@ let addTextbook = (title, isbn, description) => {
   xhr.send(JSON.stringify({ title, ISBN: isbn, description }));
 };
 
-// Function to edit a textbook
-let editTextbook = (title, ISBN, description) => {
+let refreshTextbooks = () => {
+  textbooks.innerHTML = '';
+  data
+    .sort((a, b) => b.id - a.id)
+    .map((x) => {
+      return (textbooks.innerHTML += `
+        <div id="textbook-${x.id}">
+          <span class="fw-bold fs-4">${x.title}</span>
+          <p>ISBN: ${x.ISBN}</p>
+          <pre class="text-secondary ps-3">${x.description}</pre>
+  
+          <span class="options">
+            <i onClick="tryEditTextbook(${x.id})" data-bs-toggle="modal" data-bs-target="#modal-edit" class="fas fa-edit"></i>
+            <i onClick="deleteTextbook(${x.id})" class="fas fa-trash-alt"></i>
+          </span>
+        </div>
+    `);
+    });
+
+  resetForm();
+};
+let tryEditTextbook = (id) => {
+  const textbook = data.find((x) => x.id === id);
+  selectedTextbook = textbook;
+  textbookId.innerText = textbook.id;
+  titleEditInput.value = textbook.title;
+  isbnEditInput.value = textbook.ISBN;
+  descEditInput.value = textbook.description;
+  document.getElementById('msg-edit').innerHTML = '';
+};
+
+document.getElementById('form-edit').addEventListener('submit', (e) => {
+  e.preventDefault();
+
+  if (!titleEditInput.value || !isbnEditInput.value) {
+    document.getElementById('msg-edit').innerHTML = 'Title and ISBN cannot be blank';
+  } else {
+    editTextbook(titleEditInput.value, isbnEditInput.value, descEditInput.value);
+
+    // close modal
+    let edit = document.getElementById('edit');
+    edit.setAttribute('data-bs-dismiss', 'modal');
+    edit.click();
+    (() => {
+      edit.setAttribute('data-bs-dismiss', '');
+    })();
+  }
+});
+let editTextbook = (title, isbn, description) => {
   const xhr = new XMLHttpRequest();
   xhr.onreadystatechange = () => {
-    if (xhr.readyState === XMLHttpRequest.DONE) {
-      if (xhr.status === 200) {
-        // Update the selected textbook in the data array
-        selectedTextbook.title = title;
-        selectedTextbook.description = description;
-        selectedTextbook.ISBN = ISBN;
-        refreshTextbooks();
-        // Clear form fields after successful edit
-        resetForm();
-      } else {
-        console.error('Error editing textbook:', xhr.status);
-        // Display error message to the user
-        if (msgEdit) {
-          msgEdit.innerHTML = 'Error editing textbook';
-        }
-      }
+    if (xhr.readyState == 4 && xhr.status == 200) {
+      selectedTextbook.title = title;
+      selectedTextbook.ISBN = isbn;
+      selectedTextbook.description = description;
+      refreshTextbooks();
     }
   };
   xhr.open('PUT', `${api}/textbooks/${selectedTextbook.id}`, true);
   xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
-  xhr.send(JSON.stringify({ title, ISBN, description }));
+  xhr.send(JSON.stringify({ title, ISBN: isbn, description }));
 };
 
-// Function to delete a textbook
 let deleteTextbook = (id) => {
   const xhr = new XMLHttpRequest();
   xhr.onreadystatechange = () => {
-    if (xhr.readyState === XMLHttpRequest.DONE) {
-      if (xhr.status === 204) {
-        // Remove the deleted textbook from the data array
-        data = data.filter((textbook) => textbook.id !== id);
-        refreshTextbooks();
-      } else {
-        console.error('Error deleting textbook:', xhr.status);
-        // Display error message to the user
-        if (msg) {
-          msg.innerHTML = 'Error deleting textbook';
-        }
-      }
+    if (xhr.readyState == 4 && xhr.status == 200) {
+      data = data.filter((x) => x.id !== id);
+      refreshTextbooks();
     }
   };
   xhr.open('DELETE', `${api}/textbooks/${id}`, true);
   xhr.send();
 };
 
-// Function to refresh the textbooks displayed on the page
-let refreshTextbooks = () => {
-  textbooks.innerHTML = '';
-  data.forEach((textbook) => {
-    textbooks.innerHTML += `
-      <div id="textbook-${textbook.id}" class="textbook">
-        <span class="fw-bold fs-4">${textbook.title}</span>
-        <span>ISBN: ${textbook.ISBN}</span>
-        <pre class="text-secondary ps-3">${textbook.description}</pre>
-        <div class="options">
-          <i onClick="tryEditTextbook(${textbook.id})" data-bs-toggle="modal" data-bs-target="#modal-edit" class="fas fa-edit"></i>
-          <i onClick="deleteTextbook(${textbook.id})" class="fas fa-trash-alt"></i>
-        </div>
-      </div>
-    `;
-  });
-};
-
-// Function to reset form fields
 let resetForm = () => {
   titleInput.value = '';
   isbnInput.value = '';
   descInput.value = '';
 };
 
-// Function to handle adding a textbook form submission
-document.getElementById('form-add').addEventListener('submit', (e) => {
-  e.preventDefault();
-  if (!titleInput.value) {
-    msg.innerHTML = 'Textbook title cannot be blank';
-  } else {
-    addTextbook(titleInput.value, isbnInput.value, descInput.value);
-    // Close modal after adding textbook
-    let add = document.getElementById('add');
-    add.setAttribute('data-bs-dismiss', 'modal');
-    add.click();
-    add.setAttribute('data-bs-dismiss', '');
-  }
-});
-
-// Function to handle editing a textbook form submission
-document.getElementById('form-edit').addEventListener('submit', (e) => {
-  e.preventDefault();
-  if (!titleEditInput.value) {
-    msgEdit.innerHTML = 'Textbook title cannot be blank';
-  } else {
-    editTextbook(titleEditInput.value, isbnEditInput.value, descEditInput.value);
-    // Close modal after editing textbook
-    let edit = document.getElementById('edit');
-    edit.setAttribute('data-bs-dismiss', 'modal');
-    edit.click();
-    edit.setAttribute('data-bs-dismiss', '');
-  }
-});
-
-// Function to retrieve textbooks from the server
 let getTextbooks = () => {
   const xhr = new XMLHttpRequest();
   xhr.onreadystatechange = () => {
-    if (xhr.readyState === XMLHttpRequest.DONE) {
-      if (xhr.status === 200) {
-        data = JSON.parse(xhr.responseText) || [];
-        refreshTextbooks();
-      } else {
-        console.error('Error fetching textbooks:', xhr.status);
-        // Display error message to the user
-        if (msg) {
-          msg.innerHTML = 'Error fetching textbooks';
-        }
-      }
+    if (xhr.readyState == 4 && xhr.status == 200) {
+      data = JSON.parse(xhr.responseText) || [];
+      refreshTextbooks();
     }
   };
   xhr.open('GET', `${api}/textbooks`, true);
   xhr.send();
 };
 
-// Initialize the application
 (() => {
   getTextbooks();
 })();

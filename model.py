@@ -8,7 +8,6 @@ class Textbook(BaseModel):
     description: str
 
 class TextbookRequest(BaseModel):
-    id: int
     title: str
     ISBN: str
     description: str
